@@ -517,15 +517,16 @@ bool Nodo<T,grado>::insertar(T info, int index){
     if(! tieneHijos() ){
         if(!insercion(info))return false;
         //
-        cout << "Estamos en:"; imprimirArreglo();
-        cout << endl;
-        //
+        //****************************************************************************************************************
+        //cout << "Estamos en:"; imprimirArreglo();
+        //cout << endl;
+        //*******************************************************************************************************************
         if(padre == NULL){
             if(topeValores == (minimo*2)+1){
                 splitRaiz();
             }
         }else{
-            if(topeValores == grado){cout << "hola"; split(index);}
+            if(topeValores == grado){cout << "haciendo split" << endl; split(index);}
         }
         return true;
     }
@@ -538,7 +539,7 @@ bool Nodo<T,grado>::insertar(T info, int index){
     if(padre == NULL){
         if(topeValores == (minimo*2)+1) splitRaiz();
     }else{
-        if(topeValores == grado) ; split(index);
+        if(topeValores == grado) split(index);
     }
     return true;
 }
@@ -581,10 +582,20 @@ void Nodo<T,grado>::split(int index){
 template<class T, int grado>
 void Nodo<T,grado>::split(int index){
     if(index > 0){
-        if(padre->hijos[index-1]-> topeValores < maximo){
-            padre->hijos[index-1]->insercion(padre->valores[index-1]);//good
+         Nodo<T,grado> * hermano = padre->hijos[index-1];
+        if(hermano-> topeValores < maximo){
+            hermano->insercion(padre->valores[index-1]);//good
             padre->valores[index-1] = valores[0];
             quitar(valores[0]);
+             if(tieneHijos()){
+                Nodo<T,grado> *hijoReacomodar = hijos[0];
+                topeHijos--;
+                for(int i = 0; i <topeHijos;i++)hijos[i] = hijos[i+1];
+
+                hermano->hijos[hermano->topeHijos] = hijoReacomodar;
+                hermano->hijos[hermano->topeHijos]->padre = hermano;
+                hermano->topeHijos++;
+            }
             return;
         }
     }
@@ -594,6 +605,14 @@ void Nodo<T,grado>::split(int index){
            hermano->insercion(padre->valores[index]);
            padre->valores[index] = valores[topeValores-1];
            quitar(valores[topeValores-1]);
+            if(tieneHijos()){
+                Nodo<T,grado> *hijoReacomodar = hijos[topeHijos-1];
+                topeHijos--;
+                for(int i = hermano->topeHijos; i >= 0;i--)hermano->hijos[i+1] = hermano->hijos[i];
+                hermano->hijos[0] = hijoReacomodar;
+                hermano->hijos[0]->padre = hermano;
+                hermano->topeHijos++;
+            }
            return;
         }
     }
@@ -610,7 +629,7 @@ void Nodo<T,grado>::split(int index){
         i++;
         for(int j = 0;j < topeValores;i++,j++) arreglo[i] = valores[j];
         i = 0;
-        //ahora insertamos donde debemos
+        //ahora insertamos donde debemos (Hermano-Instancia-NuevoHermano)
         for(; i < minimo;i++) hermano->valores[i] = arreglo[i];
 
         padre->insercion(arreglo[i]);
@@ -627,14 +646,37 @@ void Nodo<T,grado>::split(int index){
             nuevoHermano->valores[j] = arreglo[i];
             nuevoHermano->topeValores++;
         }
+        //Aqui hacemos la separacion de los hijos en los 3 nodos, si es necesario
+        if(tieneHijos()){
+            Nodo<T,grado>* auxHijos[topeHijos+hermano->topeHijos];
+            int i = 0;
+            for(; i < hermano->topeHijos;i++) auxHijos[i] = hermano->hijos[i];
+            for(int j = 0; j < topeHijos;j++,i++) auxHijos[i] = hijos[j];
+            i = 0;
+            //(Hermano-Instancia-NuevoHermano)
+            for(; i < minimo+1;i++) hermano->hijos[i] = auxHijos[i];
+            for(int j = 0; j < minimo+1; j++,i++){
+                    hijos[j] = auxHijos[i];
+                    hijos[j]->padre = this;
+            }
+            int resto = (topeHijos+hermano->topeHijos) - i;
+            nuevoHermano->topeHijos = 0;
+            for(int j = 0;j < resto;i++,j++){
+                nuevoHermano->hijos[j] = auxHijos[i];
+                nuevoHermano->hijos[j]->padre = nuevoHermano;
+                nuevoHermano->topeHijos++;
+            }
+            topeHijos = minimo+1;
+            hermano->topeHijos = minimo+1;
+        }
         topeValores = minimo;
         hermano->topeValores = minimo;
         padre->insercionHermano(nuevoHermano,index);
-        cout << topeHijos << ","<< hermano->topeHijos <<","<< nuevoHermano << endl;
+        //cout << topeHijos << ","<< hermano->topeHijos <<","<< nuevoHermano << endl;
        // system("pause");
         return;
     }
-    //esto es para el otro caso
+    //esto es para el otro caso (Instancia-Nuevo hermano-Hermano)
     Nodo<T,grado> *nuevoHermano = new Nodo<T,grado> (padre);
     Nodo<T,grado> *hermano = padre->hijos[index+1];
     T aux = padre->valores[index];
@@ -650,21 +692,46 @@ void Nodo<T,grado>::split(int index){
 
     for(; i < minimo;i++) valores[i] = arreglo[i];
 
-        padre->insercion(arreglo[i]);
-        i++;
+    padre->insercion(arreglo[i]);
+    i++;
 
-        for(int j = 0; j < minimo;j++,i++) {
-                nuevoHermano->valores[j] = arreglo[i];
-                nuevoHermano->topeValores++;
+    for(int j = 0; j < minimo;j++,i++) {
+            nuevoHermano->valores[j] = arreglo[i];
+            nuevoHermano->topeValores++;
+    }
+
+    padre->insercion(arreglo[i]);
+    i++;
+    int hermanoTopeValores = hermano->topeValores;
+    for(int j = 0; i < topeValores+hermanoTopeValores+1;i++,j++) hermano->valores[j] = arreglo[i];
+    /////////////Aqui separamos los hijos en los 3 nodos que tenemos, si es necesario
+    if(tieneHijos()){
+        Nodo<T,grado>* auxHijos[topeHijos+hermano->topeHijos];
+        int i = 0;
+        for(; i < topeHijos;i++) auxHijos[i] = hijos[i];
+        for(int j = 0; j < hermano->topeHijos;j++,i++) auxHijos[i] = hermano->hijos[j];
+        i = 0;
+        //instancia-nuevo hermano-hermano
+        for(; i < minimo+1;i++) hijos[i] = auxHijos[i];
+        for(int j = 0; j < minimo+1; j++,i++){
+                nuevoHermano->hijos[j] = auxHijos[i];
+                nuevoHermano->hijos[j]->padre = nuevoHermano;
         }
+        int resto = (topeHijos+hermano->topeHijos) - i;
+        hermano->topeHijos = 0;
+        for(int j = 0;j < resto;i++,j++){
+                hermano->hijos[j] = auxHijos[i];
+                hermano->hijos[j]->padre = hermano;
+                hermano->topeHijos++;
+        }
+        topeHijos = minimo+1;
+        nuevoHermano->topeHijos = minimo+1;
+    }
 
-        padre->insercion(arreglo[i]);
-        i++;
-        int hermanoTopeValores = hermano->topeValores;
-        for(int j = 0; i < topeValores+hermanoTopeValores+1;i++,j++) hermano->valores[j] = arreglo[i];
-        topeValores = minimo;
-        hermano->topeValores = minimo;
-        padre->insercionHermano(nuevoHermano,index);
+
+    topeValores = minimo;
+    hermano->topeValores = minimo;
+    padre->insercionHermano(nuevoHermano,index);
 }
 
 //////////////////////////////////Split pa la raiz(Al insertar)
@@ -694,8 +761,9 @@ void Nodo<T,grado>::splitHijos(Nodo<T,grado> *hermano){
                 hermano->hijos[i-(minimo+1)] = hijos[i];
                 hermano->hijos[i-(minimo+1)]->padre  = hermano;
     }
+    hermano->topeHijos = topeHijos -(minimo+1);
     topeHijos = minimo+1;
-    hermano->topeHijos = grado+1-topeHijos;
+    //hermano->topeHijos = grado+1-topeHijos;
 }
 ///////////////////////////////////////////Metodo auxiliar del split(Para insertar el nuevo hermano en los hijos del padre)
 template<class T, int grado>
@@ -842,8 +910,29 @@ int main(){
         arbol.insertar(2);
         //arbol.insertar(27);
         //arbol.insertar(29);
+        //meter 3 elementos para ver esta madre
+        arbol.insertar(1);
+        arbol.insertar(9);
+        arbol.insertar(-2);
         arbol.impresionPorNiveles();
-
+        cout << endl << endl;
+        arbol.insertar(-10);
+        arbol.insertar(4);
+        arbol.insertar(-20);
+        arbol.impresionPorNiveles();
+        cout << endl << endl << endl << endl;
+        //Este es el momento de la verdad~~~~~~~~~
+        arbol.insertar(6);
+        arbol.insertar(13);
+        arbol.insertar(14);
+        arbol.imprimir();
+        cout << endl << endl;
+        arbol.insertar(0);
+        arbol.insertar(-30);
+        //Ahora si es el momento de la verdad verdadera~~~~~~~
+        arbol.imprimir();
+        arbol.insertar(-40);
+        arbol.imprimir();
         //ArbolBAsteriscoInt();
         //cout  << endl;
         //system("pause");
