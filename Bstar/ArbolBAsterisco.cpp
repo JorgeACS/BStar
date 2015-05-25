@@ -13,6 +13,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 using namespace std;
 
 void ArbolBAsteriscoInt();
@@ -349,6 +350,7 @@ private:
     bool insercion(T);
     void imprimir();
     void merge(int);
+    void mergeRaiz(int);
     bool buscar(T);
     bool remover(T,int);
     void splitHijos(Nodo<T,grado>*);
@@ -360,6 +362,7 @@ private:
     void split(int);
     void splitRaiz();
     bool quitar(T);
+
     Nodo<T,grado>* padre;
     int minimo;
     int maximo;
@@ -388,37 +391,47 @@ bool Nodo<T,grado>::buscar(T info){
 //////////////////////////////Remover nodo
 template<class T, int grado>
 bool Nodo<T,grado>::remover(T info, int index){
+    //cout<<endl;
+    //out<<"estamos en el nodo: ";
+    //imprimirArreglo();
+    //cout<<endl;
     if(topeValores == 0)return false;
     int indice = 0;
+    //cout<<endl<<endl;
     while(indice < topeValores && info > valores[indice]) indice++;
+    //cout <<"indice donde entro: "<<indice<<endl;
     if( indice < topeValores && info ==  valores[indice]){
         if(!tieneHijos()){
             quitar(info);
             if(topeValores < minimo && padre != NULL)balancear(index);
         }else{
-            Nodo<T,grado> * mayorMenores = hijos[0];
+            Nodo<T,grado> * mayorMenores = hijos[indice];
             while(mayorMenores->tieneHijos())mayorMenores = mayorMenores->hijos[ mayorMenores-> topeHijos-1];
             valores[indice] = mayorMenores->valores[mayorMenores->topeValores-1];
             mayorMenores->topeValores--;
-            while(mayorMenores != hijos[0]){
+            while(mayorMenores != hijos[indice]){
                 Nodo<T,grado> *papi = mayorMenores->padre;
                 if(mayorMenores -> topeValores < minimo)mayorMenores->balancear(mayorMenores->padre->topeHijos-1);
                 mayorMenores=papi;
             }
-            if(mayorMenores->topeValores < minimo)mayorMenores->balancear(0);
+            if(mayorMenores->topeValores < minimo)mayorMenores->balancear(indice);
             if(topeValores < minimo && padre!=NULL)balancear(index);
         }
         return true;
     }else{
         if(!tieneHijos())return false;
         if(! hijos[indice]->remover(info,indice)) return false;
-        if(topeValores < minimo && padre != NULL)balancear(index);
+        if(topeValores < minimo && padre != NULL){
+                cout<<"balanceando";
+                system("pause");
+                balancear(index);
+        }
         return true;
     }
 }
-//////////////////////////////////Metodo merge (Al remover)
+//////////////////////////////////Metodo merge (Al remover,raiz)
 template<class T, int grado>
-void Nodo<T,grado>::merge(int index){
+void Nodo<T,grado>::mergeRaiz(int index){
     if(index > 0 ){
         Nodo<T,grado> *hermano = padre->hijos[index-1];
         hermano->insercion(padre->valores[index-1]);
@@ -447,6 +460,170 @@ void Nodo<T,grado>::merge(int index){
     delete this;
     return;
 }
+//////////////////////////////////Metodo merge (Al remover)
+template<class T, int grado>
+void Nodo<T,grado>::merge(int index){
+    Nodo<T,grado> *hermano1, *hermano2;
+    if(index == 0){
+        hermano1 = padre->hijos[1];
+        hermano2 = padre->hijos[2];
+        T arreglo[topeValores+hermano1->topeValores+hermano2->topeValores+2];
+        int i = 0;
+        for(;i < topeValores;i++)arreglo[i] = valores[i];
+        T aux1 = padre->valores[0];
+        T aux2 = padre->valores[1];
+        padre->quitar(aux1);
+        arreglo[i] = aux1;
+        i++;
+        for(int j = 0; j < hermano1->topeValores;j++,i++)arreglo[i] = hermano1->valores[j];
+        padre->quitar(aux2);
+        arreglo[i] = aux2;
+        i++;
+        for(int j = 0; j < hermano2->topeValores;j++,i++)arreglo[i] = hermano2->valores[j];
+        i = 0;
+        //metemos
+        for(;i < maximo; i++)valores[i] = arreglo[i];
+        padre->insercion(arreglo[i]);
+        i++;
+        int resto = ((topeValores+hermano1->topeValores+hermano2->topeValores+2) - i);
+        hermano1->topeValores = 0;
+        for(int j = 0; j < resto; j++,i++) {
+            hermano1->valores[j] = arreglo[i];
+            hermano1->topeValores++;
+        }
+        topeValores = resto;
+
+        for(int j = 2;j < padre->topeHijos-1;j++) padre->hijos[j] = padre->hijos[j+1];
+        padre->topeHijos--;
+
+        if(tieneHijos()){
+            for(int i =0;i<topeValores+1-topeHijos;++i){
+                hijos[topeHijos+i] = hermano1->hijos[0];
+                hijos[topeHijos+i]->padre = this;
+                hermano1->topeHijos--;
+                for(int j=0;j<hermano1->topeHijos;++j)
+                    hermano1->hijos[j] = hermano1->hijos[j+1];
+            }
+            topeHijos=topeValores+1;
+            for(int i=0;i<hermano2->topeHijos;++i){
+                hermano1->hijos[hermano1->topeHijos+i] = hermano2->hijos[i];
+                hermano1->hijos[hermano1->topeHijos+i]->padre = hermano1;
+            }
+            hermano1->topeHijos+=hermano2->topeHijos;
+        }
+        delete hermano2;
+        return;
+   }
+    if(index == padre->topeHijos-1){
+        hermano2 = padre->hijos[index-1];
+        hermano1 = padre->hijos[index-2];
+        T arreglo[topeValores+hermano1->topeValores+hermano2->topeValores+2];
+        int i = 0;
+        for(;i < hermano1->topeValores;i++)arreglo[i] = hermano1->valores[i];
+        T aux1 = padre->valores[padre->topeValores-2];
+        T aux2 = padre->valores[padre->topeValores-1];
+        padre->quitar(aux1);
+        arreglo[i] = aux1;
+        i++;
+        for(int j = 0; j < hermano2->topeValores;i++,j++)arreglo[i] = hermano2->valores[j];
+        padre->quitar(aux2);
+        arreglo[i] = aux2;
+        i++;
+        for(int j = 0; j < topeValores;i++,j++) arreglo[i] = valores[j];
+
+        for(int j =0;j<i;++j) cout<<arreglo[j]<<", ";
+
+        i = 0;
+        //insertamos
+        for(; i <maximo;i++)hermano1->valores[i] = arreglo[i];
+        padre->insercion(arreglo[i]);
+        i++;
+        int resto = (topeValores+hermano1->topeValores+hermano2->topeValores+2) - i;
+        hermano2->topeValores = 0;
+
+        for(int j = 0; j < resto; j++,i++){
+                hermano2->valores[j] = arreglo[i];
+                hermano2->topeValores++;
+        }
+        hermano1->topeValores = resto;
+
+        padre->topeHijos--;
+
+        if(tieneHijos()){
+            for(int i =0;i<hermano1->topeValores+1-hermano1->topeHijos;++i){
+                hermano1->hijos[hermano1->topeHijos+i] = hermano2->hijos[0];
+                hermano1->hijos[hermano1->topeHijos+i]->padre = hermano1;
+                hermano2->topeHijos--;
+                for(int j=0;j<hermano2->topeHijos;++j)
+                    hermano2->hijos[j] = hermano2->hijos[j+1];// esta wea sabe :c
+            }
+            hermano1->topeHijos=hermano1->topeValores+1;
+            for(int i=0;i<topeHijos;++i){
+                hermano2->hijos[hermano2->topeHijos+i] = hijos[i];
+                hermano2->hijos[hermano2->topeHijos+i]->padre = hermano2
+                ;
+            }
+            hermano2->topeHijos+=topeHijos;
+        }
+        delete this;
+        return;
+    }
+    hermano1 = padre->hijos[index-1];
+    hermano2 = padre->hijos[index+1];
+
+    T arreglo[topeValores+hermano1->topeValores+hermano2->topeValores+2];
+    int i = 0;
+    for(;i < hermano1->topeValores;i++)arreglo[i] = hermano1->valores[i];
+    T aux1 = padre->valores[index-1];
+    T aux2 = padre->valores[index];
+    padre->quitar(aux1);
+    padre->quitar(aux2);
+    arreglo[i] = aux1;
+    i++;
+    for(int j = 0; j < topeValores;i++,j++) arreglo[i] = valores[j];
+    arreglo[i] = aux2;
+    i++;
+    //
+    for(int j = 0; j < hermano2->topeValores;i++,j++) arreglo[i] = hermano2->valores[j];
+    i = 0;
+    for(; i < maximo;i++){
+        hermano1->valores[i] = arreglo[i];
+    }
+    cout <<"en padre insertamos el " <<  arreglo[i];
+    padre->insercion(arreglo[i]);
+    i++;
+    int resto = (topeValores+hermano1->topeValores+hermano2->topeValores+2) - i;
+    hermano2->topeValores = 0;
+    for(int j = 0; j < resto;j++,i++){
+        hermano2->valores[j] = arreglo[i];
+        hermano2->topeValores++;
+    }
+    hermano1->topeValores = resto;
+
+    for(int j = index;j < padre->topeHijos-1;j++)padre->hijos[j] = padre->hijos[j+1];
+    padre->topeHijos--;
+
+    if(tieneHijos()){
+        int i;
+        for(i=0;i<hermano1->topeValores+1-hermano1->topeHijos;++i){
+            hermano1->hijos[hermano1->topeHijos+i] = hijos[i];
+            hermano1->hijos[hermano1->topeHijos+i]->padre  = hermano1;
+        }
+        hermano1->topeHijos+=i;
+
+        int resto = hermano2->topeValores+1-hermano2->topeHijos;
+        for(int j=0;j<resto;++j){
+            for(int k=0;k<hermano2->topeHijos;++k)
+                hermano2->hijos[hermano2->topeHijos-k] = hermano2->hijos[hermano2->topeHijos-1-k];
+            hermano2->hijos[0] = hijos[topeHijos-1-j];
+            hermano2->hijos[0]->padre = hermano2;
+            hermano2->topeHijos++;
+        }
+    }
+
+    delete this;
+    return;
+}
 ////////////////////////////////////Metodo balancear(Decide si pedir prestado de sus hermanos, o hacer merge)
 template<class T, int grado>
 void Nodo<T,grado>::balancear(int index){
@@ -456,7 +633,37 @@ void Nodo<T,grado>::balancear(int index){
            insercion(padre->valores[index-1]);
            padre->valores[index-1] = hermano ->valores[hermano->topeValores-1];
            hermano->quitar(hermano->valores[hermano->topeValores-1]);
+           if(tieneHijos()){
+               for(int i = 0; i < topeHijos;i++)hijos[topeHijos-i] = hijos[topeHijos-1-i];
+               hijos[0] = hermano -> hijos [hermano->topeHijos-1];
+               hijos[0]->padre = this;
+               topeHijos++;
+               hermano->topeHijos--;
+           }
            return;
+        }else
+            if(index==padre->topeHijos-1 && index-1>0 && padre->hijos[index-2]->topeValores>minimo){
+                insercion(padre->valores[index-1]);
+                padre->valores[index-1] = hermano ->valores[hermano->topeValores-1];
+                hermano->quitar(hermano->valores[hermano->topeValores-1]);
+                if(tieneHijos()){
+                    for(int i = 0; i < topeHijos;i++)hijos[topeHijos-i] = hijos[topeHijos-1-i];
+                    hijos[0] = hermano -> hijos [hermano -> topeHijos-1];
+                    hijos[0]->padre = this;
+                    topeHijos++;
+                    hermano->topeHijos--;
+                }
+                hermano->insercion(padre->valores[index-2]);
+                padre->valores[index-2] = padre->hijos[index-2]->valores[padre->hijos[index-2]->topeValores-1];
+                padre->hijos[index-2]->quitar(padre->hijos[index-2]->valores[padre->hijos[index-2]->topeValores-1]);
+                if(tieneHijos()){
+                    for(int i = 0; i < hermano->topeHijos;i++)hermano->hijos[hermano->topeHijos-i] = hermano->hijos[hermano->topeHijos-1-i];
+                    hermano->hijos[0] = padre->hijos[index-2] -> hijos [padre->hijos[index-2] -> topeHijos-1];
+                    hermano->hijos[0] -> padre = hermano;
+                    hermano->topeHijos++;
+                    padre->hijos[index-2]->topeHijos--;
+                }
+                return;
         }
     }
     if(index+1 < padre->topeHijos){
@@ -465,10 +672,42 @@ void Nodo<T,grado>::balancear(int index){
            insercion(padre->valores[index]);
            padre->valores[index] = hermano-> valores[0];
            hermano->quitar(hermano->valores[0]);
+           if(tieneHijos()){
+                hijos[topeHijos] = hermano -> hijos [0];
+                hijos[topeHijos]->padre = this;
+               for(int i = 0; i < hermano->topeHijos;i++)hermano->hijos[i] = hermano->hijos[i+1];
+               topeHijos++;
+               hermano->topeHijos--;
+           }
            return;
-        }
+        }else
+            if(index==0 && index+2 < padre->topeHijos && padre->hijos[index+2]->topeValores>minimo){
+                insercion(padre->valores[index]);
+                padre->valores[index] = hermano-> valores[0];
+                hermano->quitar(hermano->valores[0]);
+                if(tieneHijos()){
+                    hijos[topeHijos] = hermano -> hijos [0];
+                    hijos[topeHijos]->padre = this;
+                   for(int i = 0; i < hermano->topeHijos;i++)hermano->hijos[i] = hermano->hijos[i+1];
+                   topeHijos++;
+                   hermano->topeHijos--;
+                }
+                hermano->insercion(padre->valores[index+1]);
+                padre->valores[index+1] = padre->hijos[index+2]->valores[0];
+                padre->hijos[index+2]->quitar(padre->hijos[index+2]->valores[0]);
+                if(tieneHijos()){
+                    hermano->hijos[hermano->topeHijos] = padre->hijos[index+2]-> hijos [0];
+                    hermano->hijos[hermano->topeHijos]->padre = hermano;
+                   for(int i = 0; i < padre->hijos[index+2]->topeHijos;i++)padre->hijos[index+2]->hijos[i] = padre->hijos[index+2]->hijos[i+1];
+                   hermano->topeHijos++;
+                   padre->hijos[index+2]->topeHijos--;
+                }
+           return;
+            }
     }
-    merge(index);
+    //cout<<"asjdhasgdashdgasdasjd"<<endl;
+    if(padre->padre == NULL && padre->topeValores==1) mergeRaiz(index);
+    else merge(index);
     return;
 }
 ////////////////////////////////////Metodo auxiliar para remover un elemento del arreglo (Reordena si es necesario)
@@ -873,7 +1112,8 @@ void ArbolBAsterisco<T,grado>::impresionPorNiveles(){
         for(int i = 0; i < aux2;i++){
             aux = cola.pop();
             aux->imprimirArreglo();
-            cout << "," << aux->topeValores << ","<<aux->topeHijos;
+            cout<<"  ";
+            //cout << "," << aux->topeValores << ","<<aux->topeHijos;
             for(int j = 0; j < aux->topeHijos;j++){
                 cola.push(aux->hijos[j]);
                 elementos++;
@@ -888,7 +1128,67 @@ int main(){
     try{
         ArbolBAsterisco<int,4> arbol;
         //Split a la raiz
-        arbol.insertar(5);
+        int meh;
+        int array[400];
+        srand((unsigned)time(0));
+
+        for(int i=0;i<400;++i){
+            meh = rand()% 1000;
+            array[i]=meh;
+        }
+
+        for(int i=0;i<400;++i){
+            cout<<i+1<<endl<<endl;
+            arbol.insertar(i+1);
+            arbol.impresionPorNiveles();
+            system("pause");
+            system("cls");
+        }
+
+        for(int i=0;i<400;++i){
+            meh = rand()%400;
+            cout<<"Eliminando "<<meh<<endl;
+            arbol.remover(meh);
+            arbol.impresionPorNiveles();
+            system("pause");
+            cout<<endl<<endl<<endl;
+        }
+
+
+        //arbol.impresionPorNiveles();
+        //arbol.imprimir();
+
+        /*
+        arbol.insertar(-10);
+        arbol.insertar(4);
+        arbol.insertar(-20);
+        arbol.impresionPorNiveles();
+        cout << endl << endl << endl << endl;
+        //Este es el momento de la verdad~~~~~~~~~
+        arbol.insertar(6);
+        arbol.insertar(13);
+        arbol.insertar(14);
+        arbol.imprimir();
+        cout << endl << endl;
+        arbol.insertar(0);
+        arbol.insertar(-30);
+        //Ahora si es el momento de la verdad verdadera~~~~~~~
+        arbol.imprimir();
+        arbol.insertar(-40);
+        arbol.imprimir();
+
+
+        */
+        //ArbolBAsteriscoInt();
+        //cout  << endl;
+        //system("pause");
+       // ArbolBAsteriscoChar();
+        //cout << endl;
+        //system("pause");
+        //ArbolBAsteriscoCadena();
+
+        //Split a la raiz
+       /* arbol.insertar(5);
         arbol.insertar(10);
         arbol.insertar(15);
         arbol.insertar(20);
@@ -914,32 +1214,15 @@ int main(){
         arbol.insertar(1);
         arbol.insertar(9);
         arbol.insertar(-2);
-        arbol.impresionPorNiveles();
-        cout << endl << endl;
-        arbol.insertar(-10);
-        arbol.insertar(4);
-        arbol.insertar(-20);
-        arbol.impresionPorNiveles();
-        cout << endl << endl << endl << endl;
-        //Este es el momento de la verdad~~~~~~~~~
-        arbol.insertar(6);
         arbol.insertar(13);
-        arbol.insertar(14);
-        arbol.imprimir();
+        arbol.impresionPorNiveles();
         cout << endl << endl;
-        arbol.insertar(0);
-        arbol.insertar(-30);
-        //Ahora si es el momento de la verdad verdadera~~~~~~~
-        arbol.imprimir();
-        arbol.insertar(-40);
-        arbol.imprimir();
-        //ArbolBAsteriscoInt();
-        //cout  << endl;
-        //system("pause");
-       // ArbolBAsteriscoChar();
-        //cout << endl;
-        //system("pause");
-        //ArbolBAsteriscoCadena();
+        system("pause");
+        arbol.remover(-2);
+        arbol.impresionPorNiveles();
+        cout << endl << endl;*/
+
+
         system("pause");
     }catch(NoHayMemoria &e){
         cout <<  e.getMensaje();
